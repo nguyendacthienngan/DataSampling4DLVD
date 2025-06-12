@@ -20,7 +20,7 @@ class DataEntry:
         self.graph.add_nodes(self.num_nodes, data={'features': self.features})
         for s, _type, t in edges:
             etype_number = self.dataset.get_edge_type_number(_type)
-            self.graph.add_edge(s, t, data={'etype': torch.LongTensor([etype_number])})
+            self.graph.add_edges([s], [t], data={'etype': torch.LongTensor([etype_number])})
 
 
 class DataSet:
