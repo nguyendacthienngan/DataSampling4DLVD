@@ -25,6 +25,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, required=True, help='Name of the dataset for experiment.')
     parser.add_argument('--sampling', type=str, required=True, help='sampling method')
     parser.add_argument('--input_dir', type=str, required=True, help='Input Directory of the parser')
+    parser.add_argument('--output_dir', type=str, required=True, help='Output Directory of the parser')
+    parser.add_argument('--processed_dir', type=str, required=True, help='Input Directory of the processed data')
     parser.add_argument('--node_tag', type=str, help='Name of the node feature.', default='node_features')
     parser.add_argument('--graph_tag', type=str, help='Name of the graph feature.', default='graph')
     parser.add_argument('--label_tag', type=str, help='Name of the label feature.', default='target')
@@ -37,20 +39,28 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda:0')
     args = parser.parse_args()
 
-    model_dir = os.path.join(f'{args.dataset}_result', f'{args.model_type}_model', args.sampling, args.data_split)
+    model_dir = os.path.join(f'{args.output_dir}_{args.dataset}_result', f'{args.model_type}_model', args.sampling, args.data_split)
     print('out dir ', model_dir)
+
+    processed_dir = args.processed_dir
+
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    LOG_FORMAT = "%(asctime)s - %(message)s"
-    logging.basicConfig(filename=f'{model_dir}.log', level=logging.INFO, format=LOG_FORMAT)
+    if not os.path.exists(processed_dir):
+        os.makedirs(processed_dir)
+        
+
     if args.feature_size > args.graph_embed_size:
         print('Warning!!! Graph Embed dimension should be at least equal to the feature dimension.\n'
               'Setting graph embedding size to feature size', file=sys.stderr)
         args.graph_embed_size = args.feature_size
 
-    input_dir = args.input_dir
-    processed_data_path = os.path.join(input_dir, 'processed.bin')
+    input_dir = args.input_dir # Readonly (Kaggle Input)
+    processed_data_path = os.path.join(processed_dir, 'processed.bin')
     if os.path.exists(processed_data_path):
         debug('Reading already processed data from %s!' % processed_data_path)
         logging.info('Reading already processed data from %s!' % processed_data_path)

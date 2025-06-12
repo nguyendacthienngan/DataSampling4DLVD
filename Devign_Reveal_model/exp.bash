@@ -14,3 +14,6 @@
 # done
 # )
 python main.py --dataset msr --sampling msr --input_dir reveal_model_data/msr_data/origin/data_split_0 --node_tag node_features --graph_tag graph --label_tag targets --feature_size 100 --data_split 0  --model_type ggnn --batch_size 256
+
+
+!python main.py --dataset msr --sampling msr --input_dir /kaggle/input/processed-dataset-of-datasampling4dlvd/reveal_model_bigvul_dataset --output_dir /kaggle/working/output --processed_dir /kaggle/working/processed --node_tag node_features --graph_tag graph --label_tag targets --feature_size 100 --data_split 0  --model_type ggnn --batch_size 256
