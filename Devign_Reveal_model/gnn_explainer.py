@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.nn import BCELoss
 from torch.optim import Adam
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 from data_loader.dataset import DataSet
 from modules.model import DevignModel, GGNNSum
 import warnings
