@@ -98,8 +98,13 @@ for index in tqdm(range(total_test_item)):
     if target == 1:
         graph = dataset.test_examples[index].graph
         if graph.num_edges() > 10 and graph.num_nodes() > 10:
-            features = graph.ndata['features']
-            pred = exp_model(graph,features)
+            # features = graph.ndata['features']
+            # pred = exp_model(graph,features)
+            device = torch.device('cuda:0')
+            graph = graph.to(device)
+            features = graph.ndata['features'].to(device)
+            pred = exp_model(graph, features)
+
 #             print(pred)
 #             break
             if pred[0][1] > 0.5:
