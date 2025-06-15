@@ -58,28 +58,30 @@ class GGNNSum_single(nn.Module):
         batch_graph = GGNNBatchGraph()
         batch_graph.add_subgraph(copy.deepcopy(graph))
         outputs = self.net(batch_graph,device='cuda:0')
-        return torch.tensor([[1-outputs, outputs]])
+        # return torch.tensor([[1-outputs, outputs]])
+        return torch.stack([1 - outputs, outputs], dim=1).to(outputs.device)
+
 # use when explain model with Sampling_L
-class GGNNSum_latent(nn.Module):
-    def __init__(self, GGNNSum,skMLP):
-        super(GGNNSum_latent, self).__init__()
-        self.net = GGNNSum
-        self.clf = skMLP
+# class GGNNSum_latent(nn.Module):
+#     def __init__(self, GGNNSum,skMLP):
+#         super(GGNNSum_latent, self).__init__()
+#         self.net = GGNNSum
+#         self.clf = skMLP
         
-    def forward(self,graph,feat,eweight=None):
-        device = 'cuda:0'
-        batch_graph = GGNNBatchGraph()
-        batch_graph.add_subgraph(copy.deepcopy(graph))
-        graph, features, edge_types = batch_graph.get_network_inputs(cuda=True,device=device)
-        graph = graph.to(device)
-        features = features.to(device)
-        edge_types = edge_types.to(device)
-        outputs = self.net.ggnn(graph, features, edge_types)
-        h_i, _ = batch_graph.de_batchify_graphs(outputs)
-        digit = h_i.sum(dim=1).cpu().detach().numpy()
-        clf_output = self.clf.predict_proba(digit)
-        del graph,edge_types,features
-        return torch.tensor(clf_output)
+#     def forward(self,graph,feat,eweight=None):
+#         device = 'cuda:0'
+#         batch_graph = GGNNBatchGraph()
+#         batch_graph.add_subgraph(copy.deepcopy(graph))
+#         graph, features, edge_types = batch_graph.get_network_inputs(cuda=True,device=device)
+#         graph = graph.to(device)
+#         features = features.to(device)
+#         edge_types = edge_types.to(device)
+#         outputs = self.net.ggnn(graph, features, edge_types)
+#         h_i, _ = batch_graph.de_batchify_graphs(outputs)
+#         digit = h_i.sum(dim=1).cpu().detach().numpy()
+#         clf_output = self.clf.predict_proba(digit)
+#         del graph,edge_types,features
+#         return torch.tensor(clf_output)
 
 # use when explain model with Sampling_L, load in the classifier you trained with sampling_L
 # clf = pickle.load(open('msr_result/backbone_ggnn/smote/sk_model.pkl', 'rb'))
