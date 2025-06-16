@@ -56,7 +56,14 @@ class GGNNSum_single(nn.Module):
 
     def forward(self, graph, feat, eweight=None):
         batch_graph = GGNNBatchGraph()
-        batch_graph.add_subgraph(copy.deepcopy(graph))
+        # graph must be on CPU before this step
+        cpu_graph = graph.cpu()
+        batch_graph.add_subgraph(copy.deepcopy(cpu_graph))
+
+        # move everything to CUDA
+        batch_graph.graph = batch_graph.graph.to('cuda:0')
+        feat = feat.to('cuda:0')
+
         outputs = self.net(batch_graph,device='cuda:0')
         # return torch.tensor([[1-outputs, outputs]])
         return torch.stack([1 - outputs, outputs], dim=1).to(outputs.device)
@@ -76,7 +83,7 @@ for index in tqdm(range(total_test_item)):
         if graph.num_edges() > 10 and graph.num_nodes() > 10:
             # features = graph.ndata['features']
             # pred = exp_model(graph, features)
-            graph = graph.to('cuda:0')
+            # graph = graph.to('cuda:0')
             features = graph.ndata['features']
             pred = exp_model(graph, features)
 
