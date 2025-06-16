@@ -61,34 +61,10 @@ class GGNNSum_single(nn.Module):
         # return torch.tensor([[1-outputs, outputs]])
         return torch.stack([1 - outputs, outputs], dim=1).to(outputs.device)
 
-# use when explain model with Sampling_L
-# class GGNNSum_latent(nn.Module):
-#     def __init__(self, GGNNSum,skMLP):
-#         super(GGNNSum_latent, self).__init__()
-#         self.net = GGNNSum
-#         self.clf = skMLP
-        
-#     def forward(self,graph,feat,eweight=None):
-#         device = 'cuda:0'
-#         batch_graph = GGNNBatchGraph()
-#         batch_graph.add_subgraph(copy.deepcopy(graph))
-#         graph, features, edge_types = batch_graph.get_network_inputs(cuda=True,device=device)
-#         graph = graph.to(device)
-#         features = features.to(device)
-#         edge_types = edge_types.to(device)
-#         outputs = self.net.ggnn(graph, features, edge_types)
-#         h_i, _ = batch_graph.de_batchify_graphs(outputs)
-#         digit = h_i.sum(dim=1).cpu().detach().numpy()
-#         clf_output = self.clf.predict_proba(digit)
-#         del graph,edge_types,features
-#         return torch.tensor(clf_output)
 
-# use when explain model with Sampling_L, load in the classifier you trained with sampling_L
-# clf = pickle.load(open('msr_result/backbone_ggnn/smote/sk_model.pkl', 'rb'))
 
 # switch between sampling_L and R
 exp_model = GGNNSum_single(model)
-# exp_model = GGNNSum_latent(model,clf)
 
 gnnexplainer = GNNExplainer(exp_model,num_hops=1,log =False)
 TP_explaination_dict = {}
@@ -98,20 +74,24 @@ for index in tqdm(range(total_test_item)):
     if target == 1:
         graph = dataset.test_examples[index].graph
         if graph.num_edges() > 10 and graph.num_nodes() > 10:
+            # features = graph.ndata['features']
+            # pred = exp_model(graph, features)
+            graph = graph.to('cuda:0')
             features = graph.ndata['features']
             pred = exp_model(graph, features)
 
+
 #             print(pred)
-#             break
+            #             break
             if pred[0][1] > 0.5:
-#                 print(index,'tp')
+                #                 print(index,'tp')
                 _ ,edge_mask = gnnexplainer.explain_graph(graph=graph,feat=features)
-                top_10 = np.argpartition(edge_mask.numpy(), -10)[-10:]
+                top_10 = np.argpartition(edge_mask.detach().cpu().numpy(), -10)[-10:]
                 node_list = []
                 for x in top_10:
                     node_1,node_2 = graph.find_edges(x)
-                    node_list.append(node_1.numpy()[0])
-                    node_list.append(node_2.numpy()[0])
+                    node_list.append(node_1.cpu().numpy()[0])
+                    node_list.append(node_2.cpu().numpy()[0])
                 TP_explaination_dict[index] = node_list
 
 print(TP_explaination_dict)
