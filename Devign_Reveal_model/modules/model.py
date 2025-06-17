@@ -143,6 +143,8 @@ class GGNNSum(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, batch, device):
+        self.ggnn = self.ggnn.to(device)
+        self.classifier = self.classifier.to(device)
         graph, features, edge_types = batch.get_network_inputs(cuda=True, device=device)
         graph = graph.to(device)
         features = features.to(device)
