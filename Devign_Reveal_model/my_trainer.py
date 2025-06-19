@@ -20,7 +20,12 @@ def my_evaluate_metrics(model, loss_function, num_batches, dataset, device='cuda
             for _ in tqdm(range(num_batches),desc='valid >'):
                 graph, targets = dataset.get_next_valid_batch()
                 targets = targets.cuda()
-                predictions = model(graph, device=device)
+                # predictions = model(graph, device=device)
+                if hasattr(model, 'seq_model'):  # tức là model là CombinedModel
+                    func_list = [d.func for d in graph.to_data_list()]
+                    predictions = model(graph)
+                else:
+                    predictions = model(graph, device=device)
                 all_probabilities.extend(predictions.detach().cpu().tolist())
                 batch_loss = loss_function(predictions, targets)
                 _loss.append(batch_loss.detach().cpu().item())
@@ -71,6 +76,7 @@ def my_train(model,epochs, dataset, loss_function, optimizer, save_path,device='
 #     writer = SummaryWriter()
 #     debug('Start Training')
 #     logging.info('Start Training')
+    debug(f'Start training model: {model.__class__.__name__}')
     best_model = None
     patience_counter = 0
     best_f1 = 0
@@ -84,7 +90,13 @@ def my_train(model,epochs, dataset, loss_function, optimizer, save_path,device='
 #             if type(loss_function) is not nn.BCELoss:
 #                 targets = targets.type(torch.LongTensor)
             targets = targets.to(device)
-            predictions = model(graph, device=device)
+            # predictions = model(graph, device=device)
+            if hasattr(model, 'seq_model'):  # tức là model là CombinedModel
+                func_list = [d.func for d in graph.to_data_list()]
+                predictions = model(graph)
+            else:
+                predictions = model(graph, device=device)
+
             batch_loss = loss_function(predictions, targets)
             train_losses.append(batch_loss.detach().cpu().item())
             batch_loss.backward()
