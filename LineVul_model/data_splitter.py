@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_split_number', type=int, default=20)
     args = parser.parse_args()
     
-    df = pd.read_json(args.json_dir)
+    df = pd.read_json(args.json_dir, lines=True)
     print(df.info())
     print(df.head())
     # merged = list(itertools.chain.from_iterable(list(itertools.chain.from_iterable(df['targets'].tolist()))))
