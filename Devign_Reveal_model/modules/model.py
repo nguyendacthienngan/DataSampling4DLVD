@@ -185,7 +185,7 @@ class SequenceModel(nn.Module):
     def __init__(self, model_name="microsoft/codebert-base", output_dim=768):
         super().__init__()
         self.tokenizer = RobertaTokenizer.from_pretrained(model_name)
-        self.encoder = RobertaModel.from_pretrained(model_name)
+        self.encoder = RobertaModel.from_pretrained(model_name, trust_remote_code=True, use_safetensors=True)
         self.linear = nn.Linear(self.encoder.config.hidden_size, output_dim)
 
     def forward(self, func_list):
