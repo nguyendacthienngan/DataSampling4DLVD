@@ -22,7 +22,6 @@ def my_evaluate_metrics(model, loss_function, num_batches, dataset, device='cuda
                 targets = targets.cuda()
                 # predictions = model(graph, device=device)
                 if hasattr(model, 'seq_model'):  # tức là model là CombinedModel
-                    func_list = [d.func for d in graph.to_data_list()]
                     predictions = model(graph)
                 else:
                     predictions = model(graph, device=device)
@@ -92,7 +91,6 @@ def my_train(model,epochs, dataset, loss_function, optimizer, save_path,device='
             targets = targets.to(device)
             # predictions = model(graph, device=device)
             if hasattr(model, 'seq_model'):  # tức là model là CombinedModel
-                func_list = [d.func for d in graph.to_data_list()]
                 predictions = model(graph)
             else:
                 predictions = model(graph, device=device)
