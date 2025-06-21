@@ -47,6 +47,17 @@ class BatchGraph:
 
 
 class GGNNBatchGraph(BatchGraph):
+    def __init__(self, examples=None):
+        super().__init__()
+        if examples is not None:
+            # self.func_list = [ex['func'] for ex in examples]
+            print(type(examples[0]))
+            print(vars(examples[0]))  # Xem các thuộc tính nếu là object
+            # self.func_list = [ex['func'] if isinstance(ex, dict) else ex.func for ex in examples]
+            self.func_list = [ex.func if hasattr(ex, 'func') else None for ex in examples]
+
+        else:
+            self.func_list = []
     def get_network_inputs(self, cuda=True, device=None):
         features = self.graph.ndata['features']
         edge_types = self.graph.edata['etype']

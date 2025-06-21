@@ -13,10 +13,24 @@ from data_loader.dataset import DataSet
 # from modules.model import DevignModel, GGNNSum
 from modules.model import CombinedModel  # thay vì chỉ DevignModel, GGNNSum
 
-# from trainer import train
-from my_trainer import my_train
+from my_trainer import my_train, my_evaluate_metrics
 from utils import tally_param, debug
 import logging
+
+import csv
+import pandas as pd
+
+def save_result_to_csv(output_path, result_dict):
+    file_exists = os.path.isfile(output_path)
+    with open(output_path, mode='a', newline='') as csvfile:
+        fieldnames = ['dataset', 'model_type', 'fusion_type', 'sampling', 'split',
+                      'accuracy', 'precision', 'recall', 'f1', 'auc']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        if not file_exists:
+            writer.writeheader()
+
+        writer.writerow(result_dict)
 
 if __name__ == '__main__':
     torch.manual_seed(1000)
@@ -38,6 +52,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_steps', type=int, help='Number of steps in GGNN', default=6)
     parser.add_argument('--batch_size', type=int, help='Batch Size for training', default=128)
 
+    parser.add_argument('--model_type', type=str, help='Type of the model (devign/ggnn)',
+                        choices=['devign', 'ggnn'], default='devign')
     parser.add_argument('--device', type=str, default='cuda:0')
     args = parser.parse_args()
 
@@ -107,3 +123,42 @@ if __name__ == '__main__':
     #       save_path=model_dir + '/GGNNSumModel', max_patience=100, log_every=None, device=args.device)
     my_train(model=model, epochs=50, dataset=dataset, loss_function=loss_function, optimizer=optim,
              save_path=model_dir + '/Model', device=args.device)
+    # Đánh giá sau khi train
+    model.eval()
+    valid_batch_len = dataset.initialize_valid_batch()
+    acc, pr, rc, f1, auc_score = my_evaluate_metrics(model, loss_function, valid_batch_len, dataset, device=args.device)
+
+    print(f"Validation Result:\n"
+        f"  Accuracy:  {acc:.4f}\n"
+        f"  Precision: {pr:.4f}\n"
+        f"  Recall:    {rc:.4f}\n"
+        f"  F1 Score:  {f1:.4f}\n"
+        f"  AUC:       {auc_score:.4f}")
+
+    logging.info(f"Validation Metrics:\n"
+                f"  Accuracy:  {acc:.4f}\n"
+                f"  Precision: {pr:.4f}\n"
+                f"  Recall:    {rc:.4f}\n"
+                f"  F1 Score:  {f1:.4f}\n"
+                f"  AUC:       {auc_score:.4f}")
+
+    result_dict = {
+        'dataset': args.dataset,
+        'model_type': args.model_type,
+        'fusion_type': args.fusion_type if hasattr(args, 'fusion_type') else 'na',
+        'sampling': args.sampling,
+        'split': args.data_split,
+        'accuracy': acc,
+        'precision': pr,
+        'recall': rc,
+        'f1': f1,
+        'auc': auc_score
+    }
+
+    result_csv_path = os.path.join(args.output_dir, f"{args.dataset}_results_summary.csv")
+    save_result_to_csv(result_csv_path, result_dict)
+
+    # test_batch_len = dataset.initialize_test_batch()
+    # acc, pr, rc, f1, auc_score = my_evaluate_metrics(model, loss_function, test_batch_len, dataset, device=args.device)
+    # print("TEST RESULT:", acc, pr, rc, f1, auc_score)
+

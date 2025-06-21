@@ -109,7 +109,8 @@ class DataSet:
     def get_dataset_by_ids_for_GGNN(self, entries, ids):
         taken_entries = [entries[i] for i in ids]
         labels = [e.target for e in taken_entries]
-        batch_graph = GGNNBatchGraph()
+        # batch_graph = GGNNBatchGraph()
+        batch_graph = GGNNBatchGraph(taken_entries)
         for entry in taken_entries:
             batch_graph.add_subgraph(copy.deepcopy(entry.graph))
         return batch_graph, torch.FloatTensor(labels)

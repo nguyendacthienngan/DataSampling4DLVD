@@ -260,7 +260,8 @@ class CombinedModel(nn.Module):
 
     def forward(self, batch):
         graph_out = self.graph_model(batch, device=self.device, return_embedding=True)  # Lấy vector
-        func_list = [d.func for d in batch.to_data_list()]  # Lấy danh sách hàm
+        # func_list = [d.func for d in batch.to_data_list()]  # Lấy danh sách hàm
+        func_list = batch.func_list  # Đã được gán sẵn
         seq_out = self.seq_model(func_list)  # Vector từ CodeBERT
         fused = self.fusion(graph_out, seq_out)
         return self.classifier(fused)
