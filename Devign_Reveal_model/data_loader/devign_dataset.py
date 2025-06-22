@@ -11,22 +11,16 @@ from utils import load_default_identifiers, initialize_batch, debug
 
 
 class DataEntry:
-    def __init__(self, datset, num_nodes, features, edges, target, func=None):
+    def __init__(self, datset, num_nodes, features, edges, target):
         self.dataset = datset
         self.num_nodes = num_nodes
         self.target = target
         self.graph = DGLGraph()
         self.features = torch.FloatTensor(features)
         self.graph.add_nodes(self.num_nodes, data={'features': self.features})
-        self.func = func
         for s, _type, t in edges:
             etype_number = self.dataset.get_edge_type_number(_type)
             self.graph.add_edges([s], [t], data={'etype': torch.LongTensor([etype_number])})
-
-
-def extract_func_code(entry):
-    from itertools import chain
-    return " ".join(chain.from_iterable(entry.get("original_tokens", [])))
 
 
 class DataSet:
@@ -57,8 +51,7 @@ class DataSet:
             for entry in tqdm(train_data):
                 # print("self.n_indent",self.n_ident)
                 example = DataEntry(datset=self, num_nodes=len(entry[self.n_ident]), features=entry[self.n_ident],
-                                    edges=entry[self.g_ident], target=entry[self.l_ident][0][0],
-                                        func=extract_func_code(entry))
+                                    edges=entry[self.g_ident], target=entry[self.l_ident][0][0])
                 if self.feature_size == 0:
                     self.feature_size = example.features.size(1)
                     debug('Feature Size %d' % self.feature_size)
@@ -70,8 +63,7 @@ class DataSet:
                 for entry in tqdm(valid_data):
                     example = DataEntry(datset=self, num_nodes=len(entry[self.n_ident]),
                                         features=entry[self.n_ident],
-                                        edges=entry[self.g_ident], target=entry[self.l_ident][0][0],
-                                        func=extract_func_code(entry))
+                                        edges=entry[self.g_ident], target=entry[self.l_ident][0][0])
                     self.valid_examples.append(example)
         if test_src is not None:
             debug('Reading Test File!')
@@ -80,9 +72,7 @@ class DataSet:
                 for entry in tqdm(test_data):
                     example = DataEntry(datset=self, num_nodes=len(entry[self.n_ident]),
                                         features=entry[self.n_ident],
-                                        edges=entry[self.g_ident], target=entry[self.l_ident][0][0],
-                                        func=extract_func_code(entry))
-                    
+                                        edges=entry[self.g_ident], target=entry[self.l_ident][0][0])
                     self.test_examples.append(example)
 
     def get_edge_type_number(self, _type):
@@ -119,13 +109,9 @@ class DataSet:
     def get_dataset_by_ids_for_GGNN(self, entries, ids):
         taken_entries = [entries[i] for i in ids]
         labels = [e.target for e in taken_entries]
-        # batch_graph = GGNNBatchGraph()
-        batch_graph = GGNNBatchGraph(taken_entries)
+        batch_graph = GGNNBatchGraph()
         for entry in taken_entries:
-            graph = copy.deepcopy(entry.graph)
-            graph.func = entry.func  # Gắn thủ công func vào graph
-            batch_graph.add_subgraph(graph)
-        batch_graph.func_list = [e.func for e in taken_entries]
+            batch_graph.add_subgraph(copy.deepcopy(entry.graph))
         return batch_graph, torch.FloatTensor(labels)
 
     def get_next_train_batch(self):

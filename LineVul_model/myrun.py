@@ -542,7 +542,8 @@ def main():
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
                                             config=config,
-                                            cache_dir=args.cache_dir if args.cache_dir else None)
+                                            cache_dir=args.cache_dir if args.cache_dir else None,
+                                            use_safetensors=True)  # <-- thêm dòng này
     else:
         model = model_class(config)
     # print(model)

@@ -4,10 +4,6 @@ import torch
 from torch import nn
 import torch.nn.functional as f
 from torch_geometric.data import DataLoader
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-from transformers import RobertaModel, RobertaTokenizer
-import pickle
-from sklearn.model_selection import train_test_split
 
 
 class DevignModel(nn.Module):
@@ -175,100 +171,5 @@ class GGNNSum_softmax(nn.Module):
         result = nn.Softmax(dim=1)(ggnn_sum)
         # print(result.shape)
         return result
-
-
-
-
-# === Multimodal Model Components ===
-
-class SequenceModel(nn.Module):
-    def __init__(self, model_name="microsoft/codebert-base", output_dim=768):
-        super().__init__()
-        self.tokenizer = RobertaTokenizer.from_pretrained(model_name)
-        self.encoder = RobertaModel.from_pretrained(model_name, trust_remote_code=True, use_safetensors=True)
-        self.linear = nn.Linear(self.encoder.config.hidden_size, output_dim)
-
-    def forward(self, func_list):
-        inputs = self.tokenizer(
-            func_list,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=512,
-        ).to(self.encoder.device)
-
-        with torch.no_grad():  # freeze CodeBERT
-            outputs = self.encoder(**inputs)
-        cls_output = outputs.last_hidden_state[:, 0, :]
-        return self.linear(cls_output)
-
-class ConcatFusion(nn.Module):
-    def __init__(self, d1, d2, out_dim):
-        super().__init__()
-        self.fc = nn.Linear(d1 + d2, out_dim)
-    def forward(self, x1, x2):
-        return self.fc(torch.cat((x1, x2), dim=1))
-
-class GMUFusion(nn.Module):
-    def __init__(self, d1, d2, out_dim):
-        super().__init__()
-        self.gate = nn.Linear(d1 + d2, out_dim)
-        self.fc1 = nn.Linear(d1, out_dim)
-        self.fc2 = nn.Linear(d2, out_dim)
-    def forward(self, x1, x2):
-        print("x1:", x1.shape, "x2:", x2.shape)
-        z = torch.sigmoid(self.gate(torch.cat((x1, x2), dim=1)))
-        h1 = torch.tanh(self.fc1(x1))
-        h2 = torch.tanh(self.fc2(x2))
-        return z * h1 + (1 - z) * h2
-
-class CrossAttentionFusion(nn.Module):
-    def __init__(self, d1, d2, out_dim):
-        super().__init__()
-        self.query = nn.Linear(d1, out_dim)
-        self.key = nn.Linear(d2, out_dim)
-        self.value = nn.Linear(d2, out_dim)
-        self.out_proj = nn.Linear(out_dim, out_dim)
-    def forward(self, x1, x2):
-        Q = self.query(x1).unsqueeze(1)
-        K = self.key(x2).unsqueeze(1)
-        V = self.value(x2).unsqueeze(1)
-        attn_weights = torch.softmax((Q @ K.transpose(-2, -1)) / (Q.size(-1)**0.5), dim=-1)
-        return self.out_proj((attn_weights @ V).squeeze(1))
-
-class CombinedModel(nn.Module):
-    def __init__(self, fusion_type='gmu', graph_dim=64, seq_dim=768, fusion_dim=128, device='cuda:0', feature_size=100, max_edge_type=5):
-        super().__init__()
-        self.device = device
-        self.graph_model = DevignModel(
-            input_dim=feature_size,
-            output_dim=graph_dim,
-            max_edge_types=max_edge_type,
-            num_steps=8
-        )
-        self.seq_model = SequenceModel(output_dim=seq_dim)
-
-        if fusion_type == 'concat':
-            self.fusion = ConcatFusion(graph_dim, seq_dim, fusion_dim)
-        elif fusion_type == 'gmu':
-            # self.fusion = GMUFusion(graph_dim, seq_dim, fusion_dim)
-            self.fusion = GMUFusion(d1=graph_dim, d2=seq_dim, out_dim=fusion_dim)
-
-        elif fusion_type == 'crossattn':
-            self.fusion = CrossAttentionFusion(graph_dim, seq_dim, fusion_dim)
-        else:
-            raise ValueError(f"Unknown fusion: {fusion_type}")
-
-        self.classifier = nn.Linear(fusion_dim, 2)
-
-    def forward(self, batch):
-        graph_out = self.graph_model(batch, device=self.device, return_embedding=True)  # Lấy vector
-        func_list = batch.func_list  # Đã được gán sẵn
-        seq_out = self.seq_model(func_list)  # Vector từ CodeBERT
-        print(f"graph_out.shape = {graph_out.shape}, seq_out.shape = {seq_out.shape}")
-        fused = self.fusion(graph_out, seq_out)
-        return self.classifier(fused)
-
-
 
 
