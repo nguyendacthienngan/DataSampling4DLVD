@@ -6,8 +6,9 @@ import sys
 
 import numpy as np
 import torch
-from torch.nn import BCELoss
+# from torch.nn import BCELoss
 from torch.optim import Adam
+import torch.nn as nn
 
 from data_loader.dataset import DataSet
 # from modules.model import DevignModel, GGNNSum
@@ -72,10 +73,10 @@ if __name__ == '__main__':
         os.makedirs(processed_dir)
         
 
-    if args.feature_size > args.graph_embed_size:
-        print('Warning!!! Graph Embed dimension should be at least equal to the feature dimension.\n'
-              'Setting graph embedding size to feature size', file=sys.stderr)
-        args.graph_embed_size = args.feature_size
+    # if args.feature_size > args.graph_embed_size:
+    #     print('Warning!!! Graph Embed dimension should be at least equal to the feature dimension.\n'
+    #           'Setting graph embedding size to feature size', file=sys.stderr)
+    #     args.graph_embed_size = args.feature_size
 
     input_dir = args.input_dir # Readonly (Kaggle Input)
     processed_data_path = os.path.join(processed_dir, 'processed.bin')
@@ -85,6 +86,10 @@ if __name__ == '__main__':
         dataset = pickle.load(open(processed_data_path, 'rb'))
         debug(len(dataset.train_examples), len(dataset.valid_examples), len(dataset.test_examples))
         logging.info(f'{len(dataset.train_examples)}, {len(dataset.valid_examples)}, {len(dataset.test_examples)}')
+        
+        if args.feature_size != dataset.feature_size:
+            print(f"[INFO] Overriding --feature_size {args.feature_size} → dataset.feature_size = {dataset.feature_size}")
+            args.feature_size = dataset.feature_size
     else:
         debug('generate new dataset')
         logging.info('generate new dataset')
@@ -93,14 +98,22 @@ if __name__ == '__main__':
                           test_src=os.path.join(input_dir, 'test_GGNNinput.json'),
                           batch_size=args.batch_size, n_ident=args.node_tag, g_ident=args.graph_tag,
                           l_ident=args.label_tag)
-        file = open(processed_data_path, 'wb')
-        pickle.dump(dataset, file)
-        file.close()
+        # file = open(processed_data_path, 'wb')
+        # pickle.dump(dataset, file)
+        # file.close()
+        with open(processed_data_path, 'wb') as f:
+            pickle.dump(dataset, f)
         debug(f'processed file dump to {processed_data_path}')
         logging.info(f'processed file dump to {processed_data_path}')
-    assert args.feature_size == dataset.feature_size, \
-        'Dataset contains different feature vector than argument feature size. ' \
-        'Either change the feature vector size in argument, or provide different dataset.'
+        args.feature_size = dataset.feature_size
+    # assert args.feature_size == dataset.feature_size, \
+    #     'Dataset contains different feature vector than argument feature size. ' \
+    #     'Either change the feature vector size in argument, or provide different dataset.'
+        
+    # Ensure graph_embed_size >= feature_size
+    if args.feature_size > args.graph_embed_size:
+        print(f"[WARN] graph_embed_size ({args.graph_embed_size}) < feature_size ({args.feature_size}). Adjusting.")
+        args.graph_embed_size = args.feature_size
 
     debug('model: CombinedModel (Devign + CodeBERT)')
     logging.info('model: CombinedModel (Devign + CodeBERT)')
@@ -108,7 +121,9 @@ if __name__ == '__main__':
         fusion_type=args.fusion_type,  # hoặc 'concat', 'crossattn' nếu bạn muốn thử nghiệm
         graph_dim=args.graph_embed_size,
         seq_dim=768,  # CodeBERT có output dim là 768
-        fusion_dim=128
+        fusion_dim=128,
+        feature_size=dataset.feature_size,
+        max_edge_type=dataset.max_edge_type
     )
 
     debug('Total Parameters : %d' % tally_param(model))
@@ -116,7 +131,9 @@ if __name__ == '__main__':
     # model.cuda()
     model.to(args.device)
     # loss_function = BCELoss(reduction='sum')
-    loss_function = BCELoss(reduction='mean')
+    # loss_function = BCELoss(reduction='mean')
+    loss_function = nn.CrossEntropyLoss()
+
     optim = Adam(model.parameters(), lr=0.0001, weight_decay=0.001)
     # train(model=model, dataset=dataset, max_steps=1000000, dev_every=128,
     #       loss_function=loss_function, optimizer=optim,
@@ -161,4 +178,3 @@ if __name__ == '__main__':
     # test_batch_len = dataset.initialize_test_batch()
     # acc, pr, rc, f1, auc_score = my_evaluate_metrics(model, loss_function, test_batch_len, dataset, device=args.device)
     # print("TEST RESULT:", acc, pr, rc, f1, auc_score)
-
