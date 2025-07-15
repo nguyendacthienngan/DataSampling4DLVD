@@ -17,6 +17,10 @@ class DevignModel(nn.Module):
         self.out_dim = output_dim
         self.max_edge_types = max_edge_types
         self.num_timesteps = num_steps
+        print('input_dim')
+        print(input_dim)
+        print('output_dim')
+        print(output_dim)
         self.ggnn = GatedGraphConv(in_feats=input_dim, out_feats=output_dim,
                                    n_steps=num_steps, n_etypes=max_edge_types)
         self.conv_l1 = torch.nn.Conv1d(output_dim, output_dim, 3)
@@ -33,6 +37,8 @@ class DevignModel(nn.Module):
         self.mlp_z = nn.Linear(in_features=self.concat_dim, out_features=1)
         self.mlp_y = nn.Linear(in_features=output_dim, out_features=1)
         self.sigmoid = nn.Sigmoid()
+        self.proj = nn.Linear(self.concat_dim, self.out_dim)
+
 
     def forward(self, batch, device, return_embedding=False):
         graph, features, edge_types = batch.get_network_inputs(cuda=True, device=device)
@@ -53,78 +59,18 @@ class DevignModel(nn.Module):
         before_avg = torch.mul(self.mlp_y(Y_2), self.mlp_z(Z_2))
         avg = before_avg.mean(dim=1)  # [batch_size, 1]
 
+        # if return_embedding:
+        #     return Z_2.mean(dim=1)  # shape = [batch_size, output_dim] (e.g., 64 or 128)
+        #     # return avg  # Đây là vector đầu ra cần cho mô hình kết hợp
+
         if return_embedding:
-            return avg  # Đây là vector đầu ra cần cho mô hình kết hợp
+            graph_repr = Z_2.mean(dim=1)  # [batch_size, concat_dim]
+            return self.proj(graph_repr)  # [batch_size, output_dim]
+
 
         result = self.sigmoid(avg).squeeze(dim=-1)
         return result  # Trường hợp dùng Devign bình thường (không kết hợp)
 
-
-
-class DevignModel_softmax(nn.Module):
-    def __init__(self, input_dim, output_dim, max_edge_types, num_steps=8):
-        super(DevignModel_softmax, self).__init__()
-        self.inp_dim = input_dim
-        self.out_dim = output_dim
-        self.max_edge_types = max_edge_types
-        self.num_timesteps = num_steps
-        self.ggnn = GatedGraphConv(in_feats=input_dim, out_feats=output_dim,
-                                   n_steps=num_steps, n_etypes=max_edge_types)
-        self.conv_l1 = torch.nn.Conv1d(output_dim, output_dim, 3)
-        self.maxpool1 = torch.nn.MaxPool1d(3, stride=2)
-        self.conv_l2 = torch.nn.Conv1d(output_dim, output_dim, 1)
-        self.maxpool2 = torch.nn.MaxPool1d(2, stride=2)
-
-        self.concat_dim = input_dim + output_dim
-        self.conv_l1_for_concat = torch.nn.Conv1d(self.concat_dim, self.concat_dim, 3)
-        self.maxpool1_for_concat = torch.nn.MaxPool1d(3, stride=2)
-        self.conv_l2_for_concat = torch.nn.Conv1d(self.concat_dim, self.concat_dim, 1)
-        self.maxpool2_for_concat = torch.nn.MaxPool1d(2, stride=2)
-
-        self.mlp_z = nn.Linear(in_features=self.concat_dim, out_features=2)
-        self.mlp_y = nn.Linear(in_features=output_dim, out_features=2)
-        # self.sigmoid = nn.Sigmoid()
-
-    def forward(self, batch, device):
-        graph, features, edge_types = batch.get_network_inputs(cuda=True, device=device)
-        graph = graph.to(device)
-        features = features.to(device)
-        edge_types = edge_types.to(device)
-        outputs = self.ggnn(graph, features, edge_types)
-        x_i, _ = batch.de_batchify_graphs(features)
-        h_i, _ = batch.de_batchify_graphs(outputs)
-        c_i = torch.cat((h_i, x_i), dim=-1)
-        batch_size, num_node, _ = c_i.size()
-
-        Y_1 = self.maxpool1(
-            f.relu(
-                self.conv_l1(h_i.transpose(1, 2))
-            )
-        )
-        Y_2 = self.maxpool2(
-            f.relu(
-                self.conv_l2(Y_1)
-            )
-        ).transpose(1, 2)
-        # print('y2',Y_2.shape)
-        Z_1 = self.maxpool1_for_concat(
-            f.relu(
-                self.conv_l1_for_concat(c_i.transpose(1, 2))
-            )
-        )
-        Z_2 = self.maxpool2_for_concat(
-            f.relu(
-                self.conv_l2_for_concat(Z_1)
-            )
-        ).transpose(1, 2)
-        # print('z2',Z_2.shape)
-        before_avg = torch.mul(self.mlp_y(Y_2), self.mlp_z(Z_2))
-        # print('before ',before_avg.shape)
-        avg = before_avg.mean(dim=1)
-        # print('avg',avg.shape)
-        result = nn.Softmax(dim=1)(avg)
-        # print('result',result.shape)
-        return result
 
 
 class GGNNSum(nn.Module):
@@ -152,29 +98,6 @@ class GGNNSum(nn.Module):
         result = self.sigmoid(ggnn_sum).squeeze(dim=-1)
         return result
 
-
-class GGNNSum_softmax(nn.Module):
-    def __init__(self, input_dim, output_dim, max_edge_types, num_steps=8):
-        super(GGNNSum_softmax, self).__init__()
-        self.inp_dim = input_dim
-        self.out_dim = output_dim
-        self.max_edge_types = max_edge_types
-        self.num_timesteps = num_steps
-        self.ggnn = GatedGraphConv(in_feats=input_dim, out_feats=output_dim, n_steps=num_steps,
-                                   n_etypes=max_edge_types)
-        self.classifier = nn.Linear(in_features=output_dim, out_features=2)
-
-    def forward(self, batch, device):
-        graph, features, edge_types = batch.get_network_inputs(cuda=True, device=device)
-        graph = graph.to(device)
-        features = features.to(device)
-        edge_types = edge_types.to(device)
-        outputs = self.ggnn(graph, features, edge_types)
-        h_i, _ = batch.de_batchify_graphs(outputs)
-        ggnn_sum = self.classifier(h_i.sum(dim=1))
-        result = nn.Softmax(dim=1)(ggnn_sum)
-        # print(result.shape)
-        return result
 
 
 
@@ -237,17 +160,22 @@ class CrossAttentionFusion(nn.Module):
         return self.out_proj((attn_weights @ V).squeeze(1))
 
 class CombinedModel(nn.Module):
-    def __init__(self, fusion_type='gmu', graph_dim=64, seq_dim=768, fusion_dim=128, device='cuda:0', feature_size=100, max_edge_type=5):
+    def __init__(self, fusion_type='gmu', graph_dim=128, seq_dim=768, fusion_dim=128, device='cuda:0', feature_size=100, max_edge_type=5):
         super().__init__()
         self.device = device
         self.graph_model = DevignModel(
             input_dim=feature_size,
             output_dim=graph_dim,
+            # output_dim=64,  # <-- hoặc 128
             max_edge_types=max_edge_type,
             num_steps=8
         )
         self.seq_model = SequenceModel(output_dim=seq_dim)
 
+        print('graph_dim')
+        print(graph_dim)
+        print('seq_dim')
+        print(seq_dim)
         if fusion_type == 'concat':
             self.fusion = ConcatFusion(graph_dim, seq_dim, fusion_dim)
         elif fusion_type == 'gmu':
