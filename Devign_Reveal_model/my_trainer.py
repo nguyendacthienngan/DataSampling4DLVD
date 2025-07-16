@@ -95,7 +95,9 @@ def my_train(model,epochs, dataset, loss_function, optimizer, save_path,device='
             else:
                 predictions = model(graph, device=device)
 
-            batch_loss = loss_function(predictions, targets)
+            # batch_loss = loss_function(predictions, targets)
+            batch_loss = loss_function(predictions, targets.long()) # nn.CrossEntropyLoss(): require long type
+
             train_losses.append(batch_loss.detach().cpu().item())
             batch_loss.backward()
             optimizer.step()
