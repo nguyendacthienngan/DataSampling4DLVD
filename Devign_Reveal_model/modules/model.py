@@ -1,3 +1,4 @@
+
 import torch
 from dgl.nn import GatedGraphConv
 import torch
@@ -17,10 +18,6 @@ class DevignModel(nn.Module):
         self.out_dim = output_dim
         self.max_edge_types = max_edge_types
         self.num_timesteps = num_steps
-        print('input_dim')
-        print(input_dim)
-        print('output_dim')
-        print(output_dim)
         self.ggnn = GatedGraphConv(in_feats=input_dim, out_feats=output_dim,
                                    n_steps=num_steps, n_etypes=max_edge_types)
         self.conv_l1 = torch.nn.Conv1d(output_dim, output_dim, 3)
@@ -139,7 +136,7 @@ class GMUFusion(nn.Module):
         self.fc1 = nn.Linear(d1, out_dim)
         self.fc2 = nn.Linear(d2, out_dim)
     def forward(self, x1, x2):
-        print("x1:", x1.shape, "x2:", x2.shape)
+        # print("x1:", x1.shape, "x2:", x2.shape)
         z = torch.sigmoid(self.gate(torch.cat((x1, x2), dim=1)))
         h1 = torch.tanh(self.fc1(x1))
         h2 = torch.tanh(self.fc2(x2))
@@ -172,10 +169,6 @@ class CombinedModel(nn.Module):
         )
         self.seq_model = SequenceModel(output_dim=seq_dim)
 
-        print('graph_dim')
-        print(graph_dim)
-        print('seq_dim')
-        print(seq_dim)
         if fusion_type == 'concat':
             self.fusion = ConcatFusion(graph_dim, seq_dim, fusion_dim)
         elif fusion_type == 'gmu':
@@ -193,10 +186,8 @@ class CombinedModel(nn.Module):
         graph_out = self.graph_model(batch, device=self.device, return_embedding=True)  # Lấy vector
         func_list = batch.func_list  # Đã được gán sẵn
         seq_out = self.seq_model(func_list)  # Vector từ CodeBERT
-        print(f"graph_out.shape = {graph_out.shape}, seq_out.shape = {seq_out.shape}")
+        # print(f"graph_out.shape = {graph_out.shape}, seq_out.shape = {seq_out.shape}")
         fused = self.fusion(graph_out, seq_out)
         return self.classifier(fused)
-
-
 
 
