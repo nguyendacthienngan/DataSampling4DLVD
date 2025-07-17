@@ -38,7 +38,7 @@ def my_evaluate_metrics(model, loss_function, num_batches, dataset, device='cuda
                     )
                 all_targets.extend(targets.detach().cpu().numpy().tolist())
             model.train()
-            print(confusion_matrix(all_targets,all_predictions))
+            # print(confusion_matrix(all_targets,all_predictions))
             fpr, tpr, _ = roc_curve(all_targets, all_probabilities)
             return accuracy_score(all_targets, all_predictions) , \
                 precision_score(all_targets, all_predictions) , \
